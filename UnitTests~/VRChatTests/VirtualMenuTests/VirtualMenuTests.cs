@@ -7,7 +7,6 @@ using nadena.dev.modular_avatar.core;
 using nadena.dev.modular_avatar.core.editor;
 using nadena.dev.modular_avatar.core.editor.menu;
 using nadena.dev.modular_avatar.core.menu;
-using nadena.dev.ndmf;
 using nadena.dev.ndmf.animator;
 using NUnit.Framework;
 using UnityEditor;
@@ -16,6 +15,7 @@ using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
+using ObjectReference = nadena.dev.ndmf.ObjectReference;
 
 namespace modular_avatar_tests.VirtualMenuTests
 {
