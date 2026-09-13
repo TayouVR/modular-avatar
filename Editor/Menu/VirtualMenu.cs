@@ -266,7 +266,7 @@ namespace nadena.dev.modular_avatar.core.editor.menu
 
             if (rootMenu != null)
             {
-                RootMenuKey = (ValueTuple<object, object>) (rootMenu, NoopPostprocessor);
+                RootMenuKey = (ValueTuple<object, object>) (ObjectRegistry.GetReference(rootMenu), NoopPostprocessor);
             }
             else
             {
@@ -366,7 +366,7 @@ namespace nadena.dev.modular_avatar.core.editor.menu
                 new NodeContextImpl(RootNode, NodeFor, menuToInstallerFiltered, _postprocessControlsHooks,
                     m => _visitedMenus.Add(m),
                     NoopPostprocessor);
-            if (RootMenuKey is ValueTuple<object, object> tuple && tuple.Item1 is VRCExpressionsMenu menu)
+            if (RootMenuKey is ValueTuple<object, object> tuple && tuple.Item1 is ObjectReference rootMenuRef && rootMenuRef.Object is VRCExpressionsMenu menu)
             {
                 foreach (var control in menu.controls)
                 {
@@ -402,9 +402,9 @@ namespace nadena.dev.modular_avatar.core.editor.menu
             VirtualMenuNode NodeFor(object key, Action<VRCExpressionsMenu.Control> postprocessContext)
             {
                 var lookupKey = key;
-                if (key is VRCExpressionsMenu)
+                if (key is VRCExpressionsMenu menu)
                 {
-                    lookupKey = (ValueTuple<object, object>) (key, postprocessContext);
+                    lookupKey = (ValueTuple<object, object>) (ObjectRegistry.GetReference(menu), postprocessContext);
                 }
 
                 if (_resolvedMenu.TryGetValue(lookupKey, out var node)) return node;
