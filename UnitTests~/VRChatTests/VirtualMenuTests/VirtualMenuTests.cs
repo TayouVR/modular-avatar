@@ -7,6 +7,7 @@ using nadena.dev.modular_avatar.core;
 using nadena.dev.modular_avatar.core.editor;
 using nadena.dev.modular_avatar.core.editor.menu;
 using nadena.dev.modular_avatar.core.menu;
+using nadena.dev.ndmf;
 using nadena.dev.ndmf.animator;
 using NUnit.Framework;
 using UnityEditor;
@@ -703,6 +704,88 @@ namespace modular_avatar_tests.VirtualMenuTests
         }
 
         [Test]
+        public void InstallOntoMenuAssetReachableFromRootMenu_AssetSource()
+        {
+            // Root menu already contains a submenu control pointing at menu_b.
+            // An asset-based installer targets menu_b directly.
+            // The installer's controls must appear in the resolved node for menu_b.
+            var menu_root = Create<VRCExpressionsMenu>("root");
+            var menu_b = Create<VRCExpressionsMenu>("target");
+            menu_root.controls = new List<VRCExpressionsMenu.Control>()
+            {
+                GenerateTestSubmenu(menu_b)
+            };
+            menu_b.controls = new List<VRCExpressionsMenu.Control>()
+            {
+                GenerateTestControl()
+            };
+
+            var menu_toAppend = Create<VRCExpressionsMenu>("toAppend");
+            menu_toAppend.controls = new List<VRCExpressionsMenu.Control>()
+            {
+                GenerateTestControl()
+            };
+
+            var installer = CreateInstaller("installer");
+            installer.menuToAppend = menu_toAppend;
+            installer.installTargetMenu = menu_b;
+
+            var virtualMenu = new VirtualMenu(menu_root);
+            virtualMenu.RegisterMenuInstaller(installer);
+            virtualMenu.FreezeMenu();
+
+            var rootNode = virtualMenu.ResolvedMenu[virtualMenu.RootMenuKey];
+            Assert.AreEqual(1, rootNode.Controls.Count);
+            var targetNode = rootNode.Controls[0].SubmenuNode;
+            Assert.IsNotNull(targetNode);
+            Assert.AreEqual(2, targetNode.Controls.Count);
+            AssertControlEquals(menu_b.controls[0], targetNode.Controls[0]);
+            AssertControlEquals(menu_toAppend.controls[0], targetNode.Controls[1]);
+        }
+
+        [Test]
+        public void InstallOntoMenuAssetReachableFromRootMenu_MenuItemSource()
+        {
+            // Root menu already contains a submenu control pointing at menu_b.
+            // A MenuItem-based installer targets menu_b directly.
+            // The installer's child controls must appear in the resolved node for menu_b.
+            var menu_root = Create<VRCExpressionsMenu>("root");
+            var menu_b = Create<VRCExpressionsMenu>("target");
+            menu_root.controls = new List<VRCExpressionsMenu.Control>()
+            {
+                GenerateTestSubmenu(menu_b)
+            };
+            menu_b.controls = new List<VRCExpressionsMenu.Control>()
+            {
+                GenerateTestControl()
+            };
+
+            var installer = CreateInstaller("installer");
+            var item = installer.gameObject.AddComponent<ModularAvatarMenuItem>();
+            item.Control = GenerateTestControl();
+            item.Control.type = VRCExpressionsMenu.Control.ControlType.SubMenu;
+            item.MenuSource = SubmenuSource.Children;
+
+            var child = CreateChild(item.gameObject, "child");
+            var childItem = child.AddComponent<ModularAvatarMenuItem>();
+            childItem.Control = GenerateTestControl();
+
+            installer.installTargetMenu = menu_b;
+
+            var virtualMenu = new VirtualMenu(menu_root);
+            virtualMenu.RegisterMenuInstaller(installer);
+            virtualMenu.FreezeMenu();
+
+            var rootNode = virtualMenu.ResolvedMenu[virtualMenu.RootMenuKey];
+            Assert.AreEqual(1, rootNode.Controls.Count);
+            var targetNode = rootNode.Controls[0].SubmenuNode;
+            Assert.IsNotNull(targetNode);
+            Assert.AreEqual(2, targetNode.Controls.Count);
+            AssertControlEquals(menu_b.controls[0], targetNode.Controls[0]);
+            AssertControlEquals(childItem.Control, targetNode.Controls[1]);
+        }
+
+        [Test]
         public void MergeArmatureAndMenuInstallerOnSameObjectWorks()
         {
             var root = CreateRoot("root");
@@ -837,15 +920,24 @@ namespace modular_avatar_tests.VirtualMenuTests
         internal static VirtualMenuNode NodeForMenuAsset(this VirtualMenu menu, VRCExpressionsMenu asset)
         {
             return menu.ResolvedMenu.FirstOrDefault(
-                kvp => kvp.Key is ValueTuple<object, object> tuple && ReferenceEquals(tuple.Item1, asset)
+                kvp => kvp.Key is ValueTuple<object, object> tuple &&
+                       ((tuple.Item1 is VRCExpressionsMenu m && ReferenceEquals(m, asset)) ||
+                        (tuple.Item1 is ObjectReference r && ReferenceEquals(r.Object, asset)))
             ).Value;
         }
 
         internal static VRCExpressionsMenu SourceMenu(this VirtualMenuNode node)
         {
-            if (node.NodeKey is ValueTuple<object, object> tuple && tuple.Item1 is VRCExpressionsMenu menu)
+            if (node.NodeKey is ValueTuple<object, object> tuple)
             {
-                return menu;
+                if (tuple.Item1 is VRCExpressionsMenu menu)
+                {
+                    return menu;
+                }
+                if (tuple.Item1 is ObjectReference r && r.Object is VRCExpressionsMenu refMenu)
+                {
+                    return refMenu;
+                }
             }
 
             return null;
